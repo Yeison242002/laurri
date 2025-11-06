@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Bienvenida Laurii — Stitch</title>
+  <style>
+    :root{--panel: rgba(255,255,255,0.88);--font-cursive: 'Waltograph','Comic Sans MS','Segoe Script',cursive}
+    html,body{height:100%;margin:0;font-family:var(--font-cursive);-webkit-tap-highlight-color:transparent}
+    body{background:linear-gradient(#fce7f4,#fff1ea);display:flex;align-items:center;justify-content:center}
+    .game-wrap{width:960px;max-width:98vw;background:linear-gradient(#fff,#f9f7fb);border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.15);overflow:hidden}
+    header{padding:14px 20px;background:var(--panel);display:flex;align-items:center;justify-content:space-between}
+    h1{margin:0;font-size:20px;letter-spacing:0.6px}
+    .controls{font-size:14px;color:#333}
+    canvas{display:block;background:#000;width:100%;height:640px}
+    .overlay{position:absolute;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center}
+    .modal{background:linear-gradient(#fff9,#ffffff);padding:22px;border-radius:12px;text-align:center;max-width:90%;box-shadow:0 6px 24px rgba(0,0,0,0.25)}
+    .modal h2{margin:0 0 6px 0;font-size:26px}
+    .btn{background:#ff8db0;color:white;border:none;padding:10px 16px;border-radius:10px;font-weight:700;cursor:pointer}
+    .msg-bubble{position:absolute;padding:10px 14px;border-radius:16px;background:rgba(255,255,255,0.96);box-shadow:0 8px 26px rgba(0,0,0,0.14);font-family:var(--font-cursive);font-size:15px;text-align:center;pointer-events:none}
+    .touch-controls{position:absolute;right:18px;bottom:18px;display:flex;gap:8px}
+    .dpad{width:120px;height:120px;border-radius:12px;background:rgba(255,255,255,0.6);display:grid;grid-template-areas:"up up up" "left . right" "down down down";grid-gap:6px;padding:8px}
+    .dpad button{background:transparent;border-radius:8px;border:none;font-size:18px}
+    .action-btn{width:56px;height:56px;border-radius:50%;background:#ffd36b;border:none;font-weight:800}
+    footer{padding:8px 18px;text-align:right;font-size:12px;color:#555}
+    @media (max-width:600px){.modal h2{font-size:22px}canvas{height:560px}}
+  </style>
+</head>
+<body>
+  <div class="game-wrap" id="gameWrap">
+    <header>
+      <h1>Bienvenida Laurii 🌅</h1>
+      <div class="controls">riega las flores laurii</div>
+    </header>
+
+    <div style="position:relative">
+      <canvas id="gameCanvas" width="960" height="640"></canvas>
+      <div id="bubblesContainer"></div>
+
+      <div class="touch-controls" id="touchControls" style="display:none">
+        <div class="dpad" id="dpad">
+          <button class="up">▲</button>
+          <button class="left">◀</button>
+          <div></div>
+          <button class="right">▶</button>
+          <button class="down">▼</button>
+        </div>
+        <button class="action-btn" id="touchAction">💧</button>
+      </div>
+
+      <div class="overlay" id="startOverlay">
+        <div class="modal">
+          <h2>¡Bienvenida, Laurii! 💙</h2>
+          <p>Stitch te espera. Muévete y riega las flores para que Stitch te diga un mensaje.</p>
+          <button class="btn" id="startBtn">Jugar</button>
+        </div>
+      </div>
+
+    </div>
+
+    <footer>Hecho con cariño :3</footer>
+  </div>
+
+  <script>
+  // --- Canvas setup ---
+  const canvas = document.getElementById('gameCanvas'); const ctx = canvas.getContext('2d'); const W = canvas.width, H = canvas.height;
+
+  // Player
+  const player = {x:120,y:380,w:64,h:84,speed:2.8,dir:'down',step:0,stepTimer:0,stepDelay:130,walking:false,face:'right',smileTimer:0};
+
+  // Flowers
+  const flowerMessages = [
+    {type:'loto', msg:'eres tan especial como esta flor'},
+    {type:'girasol', msg:'siempre buscas la luz como los girasoles'},
+    {type:'loto', msg:'eres una persona muy tierna'},
+    {type:'girasol', msg:'eres una niña muy bella'},
+    {type:'loto', msg:'eres muy amable'},
+    {type:'girasol', msg:'tienes un buen corazón'},
+    {type:'loto', msg:'trabajas mucho para mejorar todos los días'},
+    {type:'girasol', msg:'eres una niña admirable'},
+    {type:'loto', msg:'eres una persona que inspira confianza'},
+    {type:'girasol', msg:'eres una niña muy bondadosa'}
+  ];
+  const flowerPositions = [{x:220,y:240},{x:360,y:160},{x:520,y:220},{x:720,y:180},{x:820,y:280},{x:160,y:420},{x:320,y:480},{x:460,y:380},{x:600,y:460},{x:760,y:420}];
+  const flowers = flowerMessages.map((f,i)=>({id:i,...f,x:flowerPositions[i].x,y:flowerPositions[i].y,r:36,watered:false, effectTimer:0}));
+
+  // droplets, hearts
+  const droplets = []; const hearts = [];
+  
+
+  // input
+  const keys = {};
+
+  let isShowingMessage = false;
+
+  window.addEventListener('keydown',(e)=>{ if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault(); if(e.key===' ') keys['Space']=true; else keys[e.key]=true; });
+  window.addEventListener('keyup',(e)=>{ if(e.key===' ') delete keys['Space']; else delete keys[e.key]; });
+
+  // touch controls detection
+  function isTouchDevice(){return 'ontouchstart' in window || navigator.maxTouchPoints>0}
+  if(isTouchDevice()) document.getElementById('touchControls').style.display='flex';
+  document.querySelectorAll('#dpad button').forEach(btn=>{ btn.addEventListener('touchstart', e=>{e.preventDefault(); const t=btn.className; if(t.includes('up')) keys['ArrowUp']=true; if(t.includes('left')) keys['ArrowLeft']=true; if(t.includes('right')) keys['ArrowRight']=true; if(t.includes('down')) keys['ArrowDown']=true; }); btn.addEventListener('touchend', e=>{e.preventDefault(); const t=btn.className; if(t.includes('up')) delete keys['ArrowUp']; if(t.includes('left')) delete keys['ArrowLeft']; if(t.includes('right')) delete keys['ArrowRight']; if(t.includes('down')) delete keys['ArrowDown']; }); });
+  document.getElementById('touchAction').addEventListener('touchstart', ()=>{tryWater();});
+
+  // start
+  document.getElementById('startBtn').addEventListener('click', ()=>{document.getElementById('startOverlay').style.display='none'; lastTime=performance.now(); requestAnimationFrame(loop);});
+
+  // sound using WebAudio (simple water-like noise)
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  function playWaterSound(){ const o = audioCtx.createOscillator(); const g = audioCtx.createGain(); o.type = 'triangle'; o.frequency.setValueAtTime(700, audioCtx.currentTime); o.frequency.exponentialRampToValueAtTime(240, audioCtx.currentTime + 0.28); g.gain.setValueAtTime(0.06, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+0.6); o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+0.6); }
+
+  // game loop
+  let lastTime = 0;
+  function loop(t){ const dt = t - lastTime; lastTime = t; update(dt); render(); requestAnimationFrame(loop); }
+    
+  function update(dt){
+    if (isShowingMessage) return;
+    player.walking=false;
+    if(keys['ArrowUp']){player.y -= player.speed; player.dir='up'; player.walking=true}
+    if(keys['ArrowDown']){player.y += player.speed; player.dir='down'; player.walking=true}
+    if(keys['ArrowLeft']){player.x -= player.speed; player.dir='left'; player.walking=true; player.face='left'}
+    if(keys['ArrowRight']){player.x += player.speed; player.dir='right'; player.walking=true; player.face='right'}
+    if(keys['Space']){ tryWater(); delete keys['Space']; }
+
+    // bounds
+    player.x = Math.max(8, Math.min(W-player.w-8, player.x)); player.y = Math.max(80, Math.min(H-player.h-8, player.y));
+
+    // walking step timer
+    if(player.walking){ player.stepTimer += dt; if(player.stepTimer >= player.stepDelay){ player.step = (player.step+1)%2; player.stepTimer = 0; } }
+    else { player.step = 0; player.stepTimer = 0; }
+
+    // update droplets
+    for(let i=droplets.length-1;i>=0;i--){ const d=droplets[i]; d.vy += 0.08; d.x += d.vx; d.y += d.vy; d.life -= 1; if(d.life<=0 || d.y>H-60) droplets.splice(i,1); }
+    // update hearts
+    for(let i=hearts.length-1;i>=0;i--){ const h=hearts[i]; h.y -= h.vy; h.x += h.vx; h.alpha -= 0.02; h.scale += 0.006; if(h.alpha<=0) hearts.splice(i,1); }
+    // update flower effects timers
+    flowers.forEach(f=>{ if(f.effectTimer>0) f.effectTimer = Math.max(0, f.effectTimer - dt); });
+    // update smile timer
+    if(player.smileTimer>0) player.smileTimer = Math.max(0, player.smileTimer - dt);
+  }
+
+  // render (draw everything)
+  function render(){ ctx.clearRect(0,0,W,H);
+    drawBackground();
+    // draw flowers behind
+    flowers.forEach(f=>drawFlower(f));
+    // droplets
+    droplets.forEach(d=>{ ctx.save(); ctx.globalAlpha = Math.max(0.12, d.life/40); ctx.fillStyle='rgba(120,190,255,0.95)'; ctx.beginPath(); ctx.ellipse(d.x,d.y,3,5,0,0,Math.PI*2); ctx.fill(); ctx.restore(); });
+    // hearts
+    hearts.forEach(h=>{ ctx.save(); ctx.translate(h.x,h.y); ctx.globalAlpha = h.alpha; ctx.scale(h.scale,h.scale); ctx.shadowColor = 'rgba(255,120,160,0.95)'; ctx.shadowBlur = 14; drawHeart(0,0,8); ctx.restore(); });
+    // player drawn on top
+    drawStitch(player);
+    // draw any bubbles anchored to player head (DOM handles bubble element removal timing)
+  }
+
+  function drawBackground(){ // sunset gradient + sun + soft clouds
+    const g = ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#ffdfec'); g.addColorStop(0.4,'#ffd1c9'); g.addColorStop(0.8,'#ffc9ff'); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    // sun
+    const sx = W - 160, sy = 120; const sr = 60; const sunGrad = ctx.createRadialGradient(sx,sy,10,sx,sy,sr); sunGrad.addColorStop(0,'rgba(255,230,150,0.95)'); sunGrad.addColorStop(1,'rgba(255,180,110,0.05)'); ctx.fillStyle = sunGrad; ctx.beginPath(); ctx.arc(sx,sy,sr,0,Math.PI*2); ctx.fill();
+    // distant hills
+    ctx.fillStyle='rgba(159,210,165,0.9)'; ctx.beginPath(); ctx.ellipse(180,540,420,140,0,0,Math.PI*2); ctx.fill(); ctx.fillStyle='rgba(151,200,160,0.85)'; ctx.beginPath(); ctx.ellipse(700,560,300,120,0,0,Math.PI*2); ctx.fill();
+    // foreground grass with warm tint
+    const grassGrad = ctx.createLinearGradient(0,H-160,0,H); grassGrad.addColorStop(0,'#b7e6a7'); grassGrad.addColorStop(1,'#79c46a'); ctx.fillStyle = grassGrad; ctx.fillRect(0,H-120,W,120);
+  }
+
+  function drawFlower(f){ ctx.save(); ctx.translate(f.x,f.y);
+    // aura if effectTimer > 0
+    if(f.effectTimer>0){ const t = f.effectTimer/1200; const rad = 42 + (1-t)*28; const grad = ctx.createRadialGradient(0,0,8,0,0,rad); grad.addColorStop(0,'rgba(255,200,220,'+ (0.92*t) +')'); grad.addColorStop(0.5,'rgba(255,150,200,'+ (0.38*t) +')'); grad.addColorStop(1,'rgba(255,150,200,0)'); ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(0,10,rad,0,Math.PI*2); ctx.fill(); }
+    // stem
+    ctx.strokeStyle='#2b7a3a'; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(0,12); ctx.lineTo(0,54); ctx.stroke();
+    if(f.type==='girasol'){
+      for(let i=0;i<12;i++){ ctx.fillStyle='#ffd23f'; ctx.beginPath(); const ang = i/12*Math.PI*2; ctx.ellipse(Math.cos(ang)*18, Math.sin(ang)*18,12,6,ang,0,Math.PI*2); ctx.fill(); }
+      ctx.fillStyle='#6b3b1a'; ctx.beginPath(); ctx.arc(0,0,12,0,Math.PI*2); ctx.fill();
+    } else {
+      ctx.fillStyle='#ffd6ea'; ctx.beginPath(); ctx.ellipse(0,4,18,10,0,0,Math.PI); ctx.fill(); ctx.fillStyle='#ffb6d1'; ctx.beginPath(); ctx.ellipse(0,0,12,8,0,0,Math.PI); ctx.fill(); ctx.fillStyle='#fff1ff'; ctx.beginPath(); ctx.ellipse(0,10,8,4,0,0,Math.PI); ctx.fill();
+    }
+    if(f.watered){ ctx.fillStyle='rgba(255,255,255,0.9)'; ctx.beginPath(); ctx.ellipse(0,58,8,4,0,0,Math.PI*2); ctx.fill(); }
+    ctx.restore(); }
+
+  function drawStitch(p){ ctx.save(); ctx.translate(p.x + p.w/2, p.y + p.h/2);
+    // shadow
+    ctx.fillStyle='rgba(0,0,0,0.18)'; ctx.beginPath(); ctx.ellipse(0,36,42,14,0,0,Math.PI*2); ctx.fill();
+    // legs
+    const step = p.step; const legAngle = p.walking ? (step===0?0.32:-0.32) : 0;
+    ctx.save(); ctx.translate(-14,32); ctx.rotate(legAngle); ctx.fillStyle='#386f97'; ctx.beginPath(); ctx.ellipse(0,10,12,8,0,0,Math.PI*2); ctx.fill(); ctx.restore();
+    ctx.save(); ctx.translate(14,32); ctx.rotate(-legAngle); ctx.fillStyle='#386f97'; ctx.beginPath(); ctx.ellipse(0,10,12,8,0,0,Math.PI*2); ctx.fill(); ctx.restore();
+    // body
+    ctx.fillStyle='#3f86b0'; ctx.beginPath(); ctx.ellipse(0,4,28,34,0,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#86c4db'; ctx.beginPath(); ctx.ellipse(0,6,16,22,0,0,Math.PI*2); ctx.fill();
+    // left arm
+    ctx.save(); ctx.translate(-28,-2); ctx.rotate(-0.6); ctx.fillStyle='#3f86b0'; ctx.beginPath(); ctx.ellipse(0,0,10,14,0,0,Math.PI*2); ctx.fill(); ctx.restore();
+    // right arm + regadera
+    ctx.save(); ctx.translate(32,-6); ctx.rotate(0.18); ctx.fillStyle='#3f86b0'; ctx.beginPath(); ctx.ellipse(0,0,9,13,0,0,Math.PI*2); ctx.fill();
+      // hand
+      ctx.fillStyle='#2d6f8f'; ctx.beginPath(); ctx.ellipse(13,6,6,6,0,0,Math.PI*2); ctx.fill();
+      // regadera
+      ctx.save(); ctx.translate(20,2); ctx.rotate(0.18);
+        ctx.fillStyle='#e9f3fb'; ctx.beginPath(); ctx.roundRect(-6,-8,36,18,8); ctx.fill();
+        ctx.fillStyle='#cfefff'; ctx.beginPath(); ctx.ellipse(8,0,10,6,0,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#cfefff'; ctx.beginPath(); ctx.moveTo(30,0); ctx.lineTo(38,-7); ctx.lineTo(38,-3); ctx.closePath(); ctx.fill();
+      ctx.restore();
+    ctx.restore();
+    // head
+    ctx.save(); ctx.translate(0,-26);
+      ctx.fillStyle='#4aa0d6'; ctx.beginPath(); ctx.ellipse(0,-2,24,22,0,0,Math.PI*2); ctx.fill();
+      // ears
+      ctx.save(); ctx.translate(-24,-12); ctx.rotate(-0.6); ctx.fillStyle='#4aa0d6'; ctx.beginPath(); ctx.ellipse(0,0,12,24,0,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#f7c6d0'; ctx.beginPath(); ctx.ellipse(-1,3,7,12,0,0,Math.PI*2); ctx.fill();
+      ctx.restore();
+      ctx.save(); ctx.translate(24,-14); ctx.rotate(0.6); ctx.fillStyle='#4aa0d6'; ctx.beginPath(); ctx.ellipse(0,0,12,24,0,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#f7c6d0'; ctx.beginPath(); ctx.ellipse(1,3,7,12,0,0,Math.PI*2); ctx.fill();
+      ctx.restore();
+      // eyes
+      ctx.fillStyle='white'; ctx.beginPath(); ctx.ellipse(-8,-8,8,10,0,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.ellipse(8,-8,8,10,0,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#052031'; ctx.beginPath(); ctx.ellipse(-8,-6,4.5,5,0,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.ellipse(8,-6,4.5,5,0,0,Math.PI*2); ctx.fill();
+      // nose
+      ctx.fillStyle='#07314a'; ctx.beginPath(); ctx.ellipse(0,0,4.2,3,0,0,Math.PI*2); ctx.fill();
+      // mouth
+      ctx.strokeStyle='#052031'; ctx.lineWidth=1.6; ctx.beginPath(); if(player.smileTimer>0){ ctx.moveTo(-10,10); ctx.quadraticCurveTo(0,18,10,10); } else { ctx.moveTo(-6,10); ctx.quadraticCurveTo(0,12,6,10); } ctx.stroke();
+    ctx.restore();
+    ctx.restore(); }
+
+  // rounded rect helper
+  CanvasRenderingContext2D.prototype.roundRect = function(x,y,w,h,r){ if(typeof r==='number') r=[r,r,r,r]; this.beginPath(); this.moveTo(x+r[0],y); this.arcTo(x+w,y,x+w,y+h,r[1]); this.arcTo(x+w,y+h,x,y+h,r[2]); this.arcTo(x,y+h,x,y,r[3]); this.arcTo(x,y,x+w,y,r[0]); this.closePath(); };
+
+  // watering: spawn droplets from regadera tip, hearts and aura
+  function tryWater(){ const range = 110; const cx = player.x + player.w/2, cy = player.y + player.h/2; let found = null; for(const f of flowers){ const dx = f.x - cx, dy = f.y - cy; if(Math.hypot(dx,dy) <= range){ found = f; break; } }
+    if(found){ // calculate regadera tip coordinates in world
+      const tipX = player.x + player.w/2 + 28; const tipY = player.y + player.h/2 - 6;
+      // sound
+      try{ audioCtx.resume(); playWaterSound(); }catch(e){}
+      for(let i=0;i<22;i++){ const angle = Math.atan2(found.y - tipY, found.x - tipX) + (Math.random()-0.5)*0.45; const speed = 1.6 + Math.random()*1.6; droplets.push({x:tipX + (Math.random()-0.5)*6, y:tipY + (Math.random()-0.5)*6, vx:Math.cos(angle)*speed, vy:Math.sin(angle)*speed - 1.3, life:44 + Math.random()*20}); }
+      // hearts
+      for(let i=0;i<6;i++){ hearts.push({x:found.x + (Math.random()-0.5)*10, y:found.y + (Math.random()-0.5)*6, vx:(Math.random()-0.5)*0.8, vy:0.9 + Math.random()*0.9, alpha:1, scale:0.9}); }
+      // aura and watered state
+      found.watered = true; found.effectTimer = 1200;
+      // show bubble above stitch head
+      showBubbleAtPlayer(found);
+      // stitch smile
+      player.smileTimer = 1600;
+    }
+  }
+
+  function showBubbleAtPlayer(f,onFinish){
+  const container = document.getElementById('bubblesContainer');
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble';
+  bubble.textContent = f.msg;
+  container.appendChild(bubble);
+  requestAnimationFrame(()=>{
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = rect.width / canvas.width;
+    const scaleY = rect.height / canvas.height;
+    const headCx = (player.x + player.w/2);
+    const headCy = (player.y + player.h/2) - 26;
+    const x = rect.left + headCx * scaleX;
+    const y = rect.top + headCy * scaleY - 60;
+    bubble.style.left = (x - bubble.offsetWidth/2) + 'px';
+    bubble.style.top = (y - bubble.offsetHeight/2) + 'px';
+    bubble.animate([{transform:'translateY(10px) scale(0.96)', opacity:0},{transform:'translateY(0px) scale(1)', opacity:1}],{duration:240,easing:'cubic-bezier(.2,.9,.3,1)'});
+    setTimeout(()=>{
+      bubble.animate([{opacity:1, transform:'translateY(0px)'},{opacity:0, transform:'translateY(-12px)'}],{duration:560}).onfinish=()=>{
+        bubble.remove();
+        if(onFinish) onFinish();
+      };
+    },3200);
+  });
+}
+
+
+  // draw heart shape
+  function drawHeart(cx,cy,s){ ctx.beginPath(); const top = s*0.3; ctx.moveTo(cx,cy + top); ctx.bezierCurveTo(cx, cy, cx - s, cy, cx - s, cy + top); ctx.bezierCurveTo(cx - s, cy + (s*0.8), cx, cy + (s*1.2), cx, cy + (s*1.6)); ctx.bezierCurveTo(cx, cy + (s*1.2), cx + s, cy + (s*0.8), cx + s, cy + top); ctx.bezierCurveTo(cx + s, cy, cx, cy, cx, cy + top); ctx.closePath(); ctx.fillStyle='rgba(255,80,140,1)'; ctx.fill(); }
+
+  // reposition bubbles on resize/scroll -> clear
+  function repositionBubbles(){ document.getElementById('bubblesContainer').innerHTML=''; }
+  window.addEventListener('resize', repositionBubbles); window.addEventListener('scroll', repositionBubbles);
+
+  // click to teleport (testing)
+  canvas.addEventListener('click',(e)=>{ const rect=canvas.getBoundingClientRect(); const x=(e.clientX-rect.left)/(rect.width/canvas.width); const y=(e.clientY-rect.top)/(rect.height/canvas.height); player.x = x - player.w/2; player.y = y - player.h/2; });
+
+  // start idle render until game starts
+  requestAnimationFrame(()=>{ render(); });
+
+  // log
+  console.log('Versión final lista: atardecer, burbuja sobre cabeza, gotas desde regadera, aura y corazones. Guardar como stitch_game.html');
+  </script>
+</body>
+</html>
