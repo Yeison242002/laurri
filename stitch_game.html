@@ -4,33 +4,166 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Bienvenida Laurii — Stitch</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
   <style>
-    :root{--panel: rgba(255,255,255,0.88);--font-cursive: 'Waltograph','Comic Sans MS','Segoe Script',cursive}
-    html,body{height:100%;margin:0;font-family:var(--font-cursive);-webkit-tap-highlight-color:transparent}
-    body{background:linear-gradient(#fce7f4,#fff1ea);display:flex;align-items:center;justify-content:center}
-    .game-wrap{width:960px;max-width:98vw;background:linear-gradient(#fff,#f9f7fb);border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.15);overflow:hidden}
-    header{padding:14px 20px;background:var(--panel);display:flex;align-items:center;justify-content:space-between}
-    h1{margin:0;font-size:20px;letter-spacing:0.6px}
-    .controls{font-size:14px;color:#333}
-    canvas{display:block;background:#000;width:100%;height:640px}
-    .overlay{position:absolute;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center}
-    .modal{background:linear-gradient(#fff9,#ffffff);padding:22px;border-radius:12px;text-align:center;max-width:90%;box-shadow:0 6px 24px rgba(0,0,0,0.25)}
-    .modal h2{margin:0 0 6px 0;font-size:26px}
-    .btn{background:#ff8db0;color:white;border:none;padding:10px 16px;border-radius:10px;font-weight:700;cursor:pointer}
-    .msg-bubble{position:absolute;padding:10px 14px;border-radius:16px;background:rgba(255,255,255,0.96);box-shadow:0 8px 26px rgba(0,0,0,0.14);font-family:var(--font-cursive);font-size:15px;text-align:center;pointer-events:none}
-    .touch-controls{position:absolute;right:18px;bottom:18px;display:flex;gap:8px}
-    .dpad{width:120px;height:120px;border-radius:12px;background:rgba(255,255,255,0.6);display:grid;grid-template-areas:"up up up" "left . right" "down down down";grid-gap:6px;padding:8px}
-    .dpad button{background:transparent;border-radius:8px;border:none;font-size:18px}
-    .action-btn{width:56px;height:56px;border-radius:50%;background:#ffd36b;border:none;font-weight:800}
-    footer{padding:8px 18px;text-align:right;font-size:12px;color:#555}
-    @media (max-width:600px){.modal h2{font-size:22px}canvas{height:560px}}
+    :root {
+      --panel: rgba(255,255,255,0.88);
+      --font-cursive: 'Poppins', sans-serif;
+    }
+    html,body {
+      height:100%;
+      margin:0;
+      font-family:var(--font-cursive);
+      -webkit-tap-highlight-color:transparent;
+    }
+    body {
+      background:linear-gradient(#fce7f4,#fff1ea);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .game-wrap {
+      width:960px;
+      max-width:98vw;
+      background:linear-gradient(#fff,#f9f7fb);
+      border-radius:12px;
+      box-shadow:0 8px 30px rgba(0,0,0,0.15);
+      overflow:hidden;
+      position:relative;
+    }
+    header {
+      padding:14px 20px;
+      background:var(--panel);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+    }
+    h1 {
+      margin:0;
+      font-size:20px;
+      letter-spacing:0.6px;
+    }
+    .controls {
+      font-size:14px;
+      color:#333;
+    }
+    canvas {
+      display:block;
+      background:#000;
+      width:100%;
+      height:640px;
+    }
+    .overlay {
+      position:absolute;
+      inset:0;
+      background:rgba(0,0,0,0.4);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .modal {
+      background:linear-gradient(#fff9,#ffffff);
+      padding:22px;
+      border-radius:12px;
+      text-align:center;
+      max-width:90%;
+      box-shadow:0 6px 24px rgba(0,0,0,0.25);
+    }
+    .modal h2 {
+      margin:0 0 6px 0;
+      font-size:26px;
+    }
+    .btn {
+      background:#ff8db0;
+      color:white;
+      border:none;
+      padding:10px 16px;
+      border-radius:10px;
+      font-weight:700;
+      cursor:pointer;
+      transition:background .2s;
+    }
+    .btn:hover { background:#ff6b9e; }
+
+    /* Burbujas de texto */
+    .msg-bubble {
+      position:absolute;
+      padding:10px 14px;
+      border-radius:16px;
+      background:rgba(255,255,255,0.96);
+      box-shadow:0 8px 26px rgba(0,0,0,0.14);
+      font-size:15px;
+      text-align:center;
+      pointer-events:none;
+      max-width:180px;
+    }
+
+    /* Controles táctiles mejorados */
+    .touch-controls {
+      position:absolute;
+      bottom:18px;
+      width:100%;
+      display:flex;
+      justify-content:space-between;
+      padding:0 20px;
+      box-sizing:border-box;
+      pointer-events:none;
+    }
+    .dpad {
+      width:110px;
+      height:110px;
+      border-radius:16px;
+      background:rgba(255,255,255,0.3);
+      display:grid;
+      grid-template-areas:"up up up" "left . right" "down down down";
+      gap:6px;
+      padding:8px;
+      backdrop-filter: blur(6px);
+      pointer-events:auto;
+    }
+    .dpad button {
+      background:rgba(255,255,255,0.7);
+      border-radius:8px;
+      border:none;
+      font-size:18px;
+      box-shadow:0 2px 4px rgba(0,0,0,0.1);
+      transition:transform 0.1s;
+    }
+    .dpad button:active { transform:scale(0.9); }
+
+    .action-btn {
+      width:60px;
+      height:60px;
+      border-radius:50%;
+      background:#ffd36b;
+      border:none;
+      font-weight:800;
+      box-shadow:0 4px 12px rgba(0,0,0,0.2);
+      pointer-events:auto;
+      transition:transform 0.1s;
+    }
+    .action-btn:active { transform:scale(0.9); }
+
+    footer {
+      padding:8px 18px;
+      text-align:right;
+      font-size:12px;
+      color:#555;
+    }
+
+    @media (max-width:600px){
+      .modal h2{font-size:22px}
+      canvas{height:560px}
+      .dpad {width:90px;height:90px;}
+      .action-btn {width:52px;height:52px;}
+    }
   </style>
 </head>
 <body>
   <div class="game-wrap" id="gameWrap">
     <header>
       <h1>Bienvenida Laurii 🌅</h1>
-      <div class="controls">riega las flores laurii</div>
+      <div class="controls">Riega las flores, Laurii</div>
     </header>
 
     <div style="position:relative">
@@ -51,11 +184,10 @@
       <div class="overlay" id="startOverlay">
         <div class="modal">
           <h2>¡Bienvenida, Laurii! 💙</h2>
-          <p>Stitch te espera. Muévete y riega las flores para que Stitch te diga un mensaje.</p>
+          <p>Stitch te espera. Muévete y riega las flores para que te diga algo bonito.</p>
           <button class="btn" id="startBtn">Jugar</button>
         </div>
       </div>
-
     </div>
 
     <footer>Hecho con cariño :3</footer>
@@ -86,6 +218,7 @@
 
   // droplets, hearts
   const droplets = []; const hearts = [];
+ 
   
 
   // input
@@ -203,12 +336,8 @@
     ctx.save(); ctx.translate(0,-26);
       ctx.fillStyle='#4aa0d6'; ctx.beginPath(); ctx.ellipse(0,-2,24,22,0,0,Math.PI*2); ctx.fill();
       // ears
-      ctx.save(); ctx.translate(-24,-12); ctx.rotate(-0.6); ctx.fillStyle='#4aa0d6'; ctx.beginPath(); ctx.ellipse(0,0,12,24,0,0,Math.PI*2); ctx.fill();
-      ctx.fillStyle='#f7c6d0'; ctx.beginPath(); ctx.ellipse(-1,3,7,12,0,0,Math.PI*2); ctx.fill();
-      ctx.restore();
-      ctx.save(); ctx.translate(24,-14); ctx.rotate(0.6); ctx.fillStyle='#4aa0d6'; ctx.beginPath(); ctx.ellipse(0,0,12,24,0,0,Math.PI*2); ctx.fill();
-      ctx.fillStyle='#f7c6d0'; ctx.beginPath(); ctx.ellipse(1,3,7,12,0,0,Math.PI*2); ctx.fill();
-      ctx.restore();
+      ctx.save(); ctx.translate(-24,-12); ctx.rotate(-0.6); ctx.fillStyle='#4aa0d6'; ctx.beginPath(); ctx.ellipse(0,0,12,24,0,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#f7c6d0'; ctx.beginPath(); ctx.ellipse(-1,3,7,12,0,0,Math.PI*2); ctx.fill(); ctx.restore();
+      ctx.save(); ctx.translate(24,-14); ctx.rotate(0.6); ctx.fillStyle='#4aa0d6'; ctx.beginPath(); ctx.ellipse(0,0,12,24,0,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#f7c6d0'; ctx.beginPath(); ctx.ellipse(1,3,7,12,0,0,Math.PI*2); ctx.fill(); ctx.restore();
       // eyes
       ctx.fillStyle='white'; ctx.beginPath(); ctx.ellipse(-8,-8,8,10,0,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.ellipse(8,-8,8,10,0,0,Math.PI*2); ctx.fill();
       ctx.fillStyle='#052031'; ctx.beginPath(); ctx.ellipse(-8,-6,4.5,5,0,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.ellipse(8,-6,4.5,5,0,0,Math.PI*2); ctx.fill();
