@@ -85,7 +85,6 @@
     }
     .btn:hover { background:#ff6b9e; }
 
-    /* Burbujas de texto */
     .msg-bubble {
       position:absolute;
       padding:10px 14px;
@@ -98,51 +97,73 @@
       max-width:180px;
     }
 
-    /* Controles táctiles mejorados */
+    /* 🎮 Controles táctiles minimalistas */
     .touch-controls {
       position:absolute;
       bottom:18px;
       width:100%;
       display:flex;
       justify-content:space-between;
-      padding:0 20px;
+      padding:0 24px;
       box-sizing:border-box;
       pointer-events:none;
     }
     .dpad {
-      width:110px;
-      height:110px;
-      border-radius:16px;
-      background:rgba(255,255,255,0.3);
+      width:120px;
+      height:120px;
       display:grid;
-      grid-template-areas:"up up up" "left . right" "down down down";
+      grid-template-areas:
+        ". up ."
+        "left . right"
+        ". down .";
+      place-items:center;
       gap:6px;
-      padding:8px;
-      backdrop-filter: blur(6px);
+      background:rgba(255,255,255,0.25);
+      border-radius:16px;
+      backdrop-filter:blur(8px);
       pointer-events:auto;
     }
     .dpad button {
-      background:rgba(255,255,255,0.7);
-      border-radius:8px;
-      border:none;
+      width:40px;
+      height:40px;
+      background:#444;
+      color:#fff;
       font-size:18px;
-      box-shadow:0 2px 4px rgba(0,0,0,0.1);
-      transition:transform 0.1s;
+      border:none;
+      border-radius:8px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      transition:transform 0.1s, background 0.2s;
     }
-    .dpad button:active { transform:scale(0.9); }
+    .dpad button:active {
+      transform:scale(0.92);
+      background:#666;
+    }
+    .up { grid-area: up; }
+    .down { grid-area: down; }
+    .left { grid-area: left; }
+    .right { grid-area: right; }
 
     .action-btn {
-      width:60px;
-      height:60px;
+      width:64px;
+      height:64px;
       border-radius:50%;
-      background:#ffd36b;
+      background:#00b7ff;
+      color:#fff;
+      font-size:24px;
       border:none;
-      font-weight:800;
-      box-shadow:0 4px 12px rgba(0,0,0,0.2);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      box-shadow:0 4px 14px rgba(0,0,0,0.25);
       pointer-events:auto;
-      transition:transform 0.1s;
+      transition:transform 0.1s, background 0.2s;
     }
-    .action-btn:active { transform:scale(0.9); }
+    .action-btn:active {
+      transform:scale(0.9);
+      background:#009ee0;
+    }
 
     footer {
       padding:8px 18px;
@@ -154,8 +175,9 @@
     @media (max-width:600px){
       .modal h2{font-size:22px}
       canvas{height:560px}
-      .dpad {width:90px;height:90px;}
-      .action-btn {width:52px;height:52px;}
+      .dpad {width:100px;height:100px;}
+      .dpad button{width:34px;height:34px;font-size:16px;}
+      .action-btn {width:54px;height:54px;font-size:22px;}
     }
   </style>
 </head>
@@ -170,11 +192,11 @@
       <canvas id="gameCanvas" width="960" height="640"></canvas>
       <div id="bubblesContainer"></div>
 
+      <!-- 🎮 Controles táctiles -->
       <div class="touch-controls" id="touchControls" style="display:none">
         <div class="dpad" id="dpad">
           <button class="up">▲</button>
           <button class="left">◀</button>
-          <div></div>
           <button class="right">▶</button>
           <button class="down">▼</button>
         </div>
